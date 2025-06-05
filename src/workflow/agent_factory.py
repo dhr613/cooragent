@@ -55,8 +55,8 @@ async def agent_factory_node(state: State) -> Command[Literal["publisher","__end
 
 
 async def publisher_node(state: State) -> Command[Literal["agent_factory", "agent_factory", "__end__"]]:
-    """publisher node that decides which agent should act next."""
-    logger.info("publisher evaluating next action")
+    """决定下一个应由哪个代理行动的发布者节点。"""
+    logger.info("发布者正在评估下一个行动... \n")
     messages = apply_prompt_template("publisher", state)
     response = await (
         get_llm_by_type(AGENT_LLM_MAP["publisher"])
@@ -67,37 +67,37 @@ async def publisher_node(state: State) -> Command[Literal["agent_factory", "agen
     
     if agent == "FINISH":
         goto = "__end__"
-        logger.info("Workflow completed \n")
+        logger.info("工作流完成 \n")
         return Command(goto=goto, update={"next": goto})
     elif agent != "agent_factory":
-        logger.info(f"publisher delegating to: {agent}")
+        logger.info(f"发布者委托给: {agent}")
         return Command(goto=goto, update={"next": agent})
     else:
         goto = "agent_factory"
-        logger.info(f"publisher delegating to: {agent}")
+        logger.info(f"发布者委托给: {agent}")
         return Command(goto=goto, update={"next": agent})
 
 
 async def planner_node(state: State) -> Command[Literal["publisher", "__end__"]]:
-    """Planner node that generate the full plan."""
-    logger.info("Planner generating full plan \n")
-    messages = apply_prompt_template("planner", state)
+    """计划节点，为任务生成完整的计划"""
+    logger.info("计划节点正在生成完整的计划... \n")
+    messages = apply_prompt_template("planner", state)# 获取planner的messages列表
     llm = get_llm_by_type(AGENT_LLM_MAP["planner"])
     if state.get("deep_thinking_mode"):
         llm = get_llm_by_type("reasoning")
     if state.get("search_before_planning"):
-        searched_content = tavily_tool.invoke({"query": state["messages"][-1]["content"]})
+        searched_content = tavily_tool.invoke({"query": state["messages"][-1]["content"]})# 调用tavily_tool，获取相关搜索结果
         messages = deepcopy(messages)
-        messages[-1]["content"] += f"\n\n# Relative Search Results\n\n{json.dumps([{'titile': elem['title'], 'content': elem['content']} for elem in searched_content], ensure_ascii=False)}"
+        messages[-1]["content"] += f"\n\n# 相关搜索结果\n\n{json.dumps([{'titile': elem['title'], 'content': elem['content']} for elem in searched_content], ensure_ascii=False)}"
     
-    response = await llm.ainvoke(messages)
+    response = await llm.ainvoke(messages)# 调用planner的llm模型，获取response
     content = clean_response_tags(response.content)
 
     goto = "publisher"
     try:
         json.loads(content)
     except json.JSONDecodeError:
-        logger.warning("Planner response is not a valid JSON")
+        logger.warning("计划节点的响应不是有效的JSON")
         goto = "__end__"
 
     return Command(
@@ -111,12 +111,12 @@ async def planner_node(state: State) -> Command[Literal["publisher", "__end__"]]
 
 
 async def coordinator_node(state: State) -> Command[Literal["planner", "__end__"]]:
-    """Coordinator node that communicate with customers."""
-    logger.info("Coordinator talking. \n")
-    messages = apply_prompt_template("coordinator", state)
-    response = await get_llm_by_type(AGENT_LLM_MAP["coordinator"]).ainvoke(messages)
+    """与用户沟通的协调节点。"""
+    logger.info("协调员正在谈话... \n")
+    messages = apply_prompt_template("coordinator", state)# 获取coordinator的messages列表
+    response = await get_llm_by_type(AGENT_LLM_MAP["coordinator"]).ainvoke(messages)# 调用coordinator的llm模型，获取response
     goto = "__end__"
-    if "handover_to_planner" in response.content:
+    if "handover_to_planner" in response.content:# 如果response中包含handover_to_planner，则跳转到planner节点
         goto = "planner"
         
     return Command(

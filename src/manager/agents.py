@@ -37,7 +37,7 @@ class AgentManager:
     def __init__(self, tools_dir, agents_dir, prompt_dir):
         for path in [tools_dir, agents_dir, prompt_dir]:
             if not path.exists():
-                logger.info(f"path {path} does not exist when agent manager initializing, gona to create...")
+                logger.info(f"路径 {path} 不存在，在初始化agent manager时，将创建... \n")
                 path.mkdir(parents=True, exist_ok=True)
                 
         self.tools_dir = Path(tools_dir)
@@ -45,15 +45,15 @@ class AgentManager:
         self.prompt_dir = Path(prompt_dir)
 
         if not self.tools_dir.exists() or not self.agents_dir.exists() or not self.prompt_dir.exists():
-            raise FileNotFoundError("One or more provided directories do not exist.")
+            raise FileNotFoundError("提供的目录之一不存在。")
         self.available_agents = {}
         self.available_tools = {}
 
     async def initialize(self, user_agent_flag=USR_AGENT):
-        """Asynchronously initializes the AgentManager by loading agents and tools."""
+        """异步初始化AgentManager，加载agents和tools"""
         await self._load_agents(user_agent_flag)
         await self.load_tools()
-        logger.info(f"AgentManager initialized. {len(self.available_agents)} agents and {len(self.available_tools)} tools available.")
+        logger.info(f"AgentManager初始化完成。 {len(self.available_agents)} agents 和 {len(self.available_tools)} tools 可用。")
 
     def _create_agent_by_prebuilt(self, user_id: str, name: str, nick_name: str, llm_type: str, tools: list[tool], prompt: str, description: str):
         def _create(user_id: str, name: str, nick_name: str, llm_type: str, tools: list[tool], prompt: str, description: str):

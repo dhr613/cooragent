@@ -69,7 +69,7 @@ _llm_cache: dict[LLMType, ChatOpenAI | ChatDeepSeek] = {}
 
 def get_llm_by_type(llm_type: LLMType) -> ChatOpenAI | ChatDeepSeek:
     """
-    Get LLM instance by type. Returns cached instance if available.
+    通过类型获取 LLM 实例。如果可用，则返回缓存的实例。
     """
     if llm_type in _llm_cache:
         return _llm_cache[llm_type]

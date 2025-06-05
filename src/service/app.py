@@ -38,7 +38,7 @@ class Server:
             request: "AgentRequest"
     ) -> AsyncGenerator[str, None]:
         if agent_manager is None:
-             logger.error("Agent workflow called before AgentManager was initialized.")
+             logger.error("Agent 工作流在AgentManager初始化前被调用。")
              raise HTTPException(status_code=503, detail="Service not ready, AgentManager not initialized.")
 
         session = UserSession(request.user_id)

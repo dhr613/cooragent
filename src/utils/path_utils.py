@@ -8,8 +8,8 @@ import logging
 @lru_cache(maxsize=None)
 def get_project_root():
     """
-    Determine the project root directory by searching for project identification files (e.g., .git, .project-root, etc.)
-    Supports multiple strategies to ensure reliability
+    通过查找项目标识文件（例如，.git、.project-root 等）来确定项目根目录
+    支持多种策略以确保可靠性
     """
     # Strategy 1: Search upwards from the current file
     current_path = Path(__file__).parent.absolute()

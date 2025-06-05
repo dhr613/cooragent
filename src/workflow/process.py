@@ -57,26 +57,26 @@ async def run_agent_workflow(
     search_before_planning: bool = False,
     coor_agents: Optional[list[str]] = None,
 ):
-    """Run the agent workflow with the given user input.
+    """根据用户的输入来运行智能体工作流
 
     Args:
-        user_input_messages: The user request messages
+        user_input_messages: 用户的请求列表
         debug: If True, enables debug level logging
 
     Returns:
-        The final state after the workflow completes
+        工作量完成以后的最终state
     """
     if task_type == TaskType.AGENT_FACTORY:
         graph = agent_factory_graph()
     else:
         graph = build_graph()
     if not user_input_messages:
-        raise ValueError("Input could not be empty")
+        raise ValueError("输入不能为空")
 
     if debug:
         enable_debug_logging()
 
-    logger.info(f"Starting workflow with user input: {user_input_messages}")
+    logger.info(f"正在依据用户的输入启动工作流: {user_input_messages}")
 
     workflow_id = str(uuid.uuid4())
 
@@ -144,11 +144,11 @@ async def _process_workflow(
     }
     
     try:
-        current_node = workflow.start_node
-        state = State(**initial_state)
+        current_node = workflow.start_node# 从开始节点开始
+        state = State(**initial_state)# 初始化状态对象
     
         
-        while current_node != "__end__":
+        while current_node != "__end__":# 直到出现__end__节点为止
             agent_name = current_node
             logger.info(f"Started node: {agent_name}")
             
@@ -158,7 +158,7 @@ async def _process_workflow(
                     "agent_name": agent_name,
                     "agent_id": f"{workflow_id}_{agent_name}_1",
                 },
-            }
+            }# 通过yield产生不同类型的event
             node_func = workflow.nodes[current_node]
 
             command = await node_func(state)
