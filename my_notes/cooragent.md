@@ -45,16 +45,18 @@ state的初始化(**src.workflow.process**)
     - 添加所有user_id="share"的智能体的agent_name
     - 添加所有用户想要的智能体的agent_name（通过发送请求时候设定的user_id和coor_agents中获取）
 - TEAM_DESCRIPTION：一个字符串，由上面选择的所有智能体的agent_name和description拼接的形成的字符串，表示对所有智能体的描述
-- TOOL：一个字符串，所有可用的tool_name和tool_description拼接的字符串，表示对所有工具的描述
+- TOOLS：一个字符串，所有可用的tool_name和tool_description拼接的字符串，表示对所有工具的描述
 - messages：输入的消息列表
 - deep_thinking_mode：bool，是否进行深度思考
 - search_before_planning：bool，在制定计划前是否进行网络检索
 
 
 
+---
+
 run_agent_workflow(**src.workflow.process**)
 
-- agent_factory_graph(langgraph)
+- <font color="#dd0000">def</font> agent_factory_graph(langgraph)
   - <font color="#dd0000">def</font> coordinator_node(node:coordinator)：协调员节点，通过用户的提问来决定只是简单的闲聊，还是进入下一个节点（以llm是否输出handover_to_planner()为判断依据)
     - <font color="#dd0000">def</font> apply_prompt_template(**src.prompts.template**):
       - 将state中的所有的消息形式都转化为messages列表的形式，同时只保留human和ai的messages
@@ -66,12 +68,50 @@ run_agent_workflow(**src.workflow.process**)
     - <font color="#dd0000">def</font> get_llm_by_type(**src.llm.llm**):根据传递的llm_type参数（llm_type由prompt_name来确定，当prompt_name=coordinator时，llm_typ=basic，也就是LangchainOpenAI）来返回对应的langchain下的模型实例
       - 如果用户的问题是闲聊，那么就会返回一个闲聊的简单回答（同时goto指向end，）如果是由具体的需求，那么会返回一个"handover_to_planner()"字符串（同时goto指向“planner”）
       - Command更新消息state中的messags与agent_name为"coordinator"
-  - <font color="#dd0000">def</font> planner_node(node:planner)：根据用户的需求生成一个json字符串，来确定用户的需求需要哪些agent来实现，并提供对应agent的信息
+  - <font color="#dd0000">def</font> planner_node(node:planner)：根据用户的需求生成一个json字符串，来确定用户的需求需要哪些agent来实现，这些agent的执行顺序是什么，并提供对应agent的信息，并分析是否需要新的智能体，新的智能体的描述，以及需要具备什么样的能力
     - <font color="#dd0000">def</font> apply_prompt_template(**已出现**):此时的prompt_name是"planner",获取对应的[prompt][F:\cooragent\planner.md]（planner中prompt会使用state中的TEAM_MEMBERS和TEAM_MEMBERS_DESCRIPTION变量来填充相关信息，以此来生成agent信息）作为system messages并返回messages列表
     - <font color="#dd0000">def</font> get_llm_by_type(**已出现**):根据prompt_name（此时为planner）选择对应的模型类型（reasoning，为LangchainDeepSeek），并将messags列表作为输出，返回对应的响应字符串
     - 如果state中规定了"deep_thinking_mode"参数，那么强制使用推理模型
     - 如果state中固定了"search_before_planning"参数，那么首先会利用tavily检索器去根据用户的提问来进行一次检索，然后将检索的结果添加到messages列表中最后一条消息的content字符串中（也就是用户的message）
     - 根据提示规则会返回一个json格式的字符串，经过后处理以后利用json.loads来解析获取结构化的信息
     - 将解析之前的字符串添加到state中的messages列表中，如果结构化解析成功，则goto到"publisher"节点，如果解析失败，则goto到"end"节点
-  - <font color="#dd0000">def</font> publisher_node(node:publisher)
-    - <font color="#dd0000">def</font> apply_prompt_template(**已出现**):此时的prompt_name是"publisher"，获取对应的[prompt][F:\cooragent\publisher.md]
+  - <font color="#dd0000">def</font> publisher_node(node:publisher)：这是个路由节点，用来决定下一个节点应该指向哪个智能体
+    - <font color="#dd0000">def</font> apply_prompt_template(**已出现**):此时的prompt_name是"publisher"，获取对应的[prompt][F:\cooragent\publisher.md] 
+    - <font color="#dd0000">def</font> get_llm_by_type(已出现):根据prompt_name(此时为publisher)对应的模型类型（basic，为LangchainOpenAI），利用with_structure_output来生成一个{"next":goto}的键值对来进行路由管理
+    - 如果goto="FINISH"，下一个为end节点
+    - 如果goto="agent_factory"，下一个为agent_factory节点
+    - 如果goto!="agent_factory"，（有待确认，似乎有bug）
+  - <font color="#dd0000">def</font> agent_factory_node(node:agent_factory_node)：用来创建新的智能体
+    - <font color="#dd0000">def</font> apply_prompt_template(**已出现**):此时的prompt_name是"agent_factory"，获取对应的[prompt][F:\cooragent\agent_factory.md] 它阐述了所有可用的工具列表，由state中的TOOLS来确定
+    - <font color="#dd0000">def</font> get_llm_by_type(已出现):根据prompt_name(此时为agent_factory)对应的模型类型（basic，为LangchainOpenAI），利用with_structure_output来生成一个继承了TypedDict的AgentBuilder类，规定了
+      - agent_name:str
+      - agent_description:str
+      - thought:str
+      - llm_type:str
+      - selected_tools:List[AgentTool]
+        - name:str(工具的名称)
+        - description:str(工具的描述)
+      - prompt:str
+    - 从返回的工具中筛选出出现在available_tools中的工具
+    - 利用<font color="#dd0000">def</font> _create_agent_by_prebuilt 创建新的智能体，其相关属性赋值分别为：
+      - user_id=state["user_id"]
+      - name=agent_name
+      - nick_name=agent_name
+      - llm_type=llm_type
+      - tools=selected_tools（经过筛选以后）
+      - prompt=prompt
+      - description=agent_description
+    - 向state中的TEAM_MEMBERS中添加agent_name的内容
+    - 指向end节点
+
+
+
+- <font color="#dd0000">def</font> build_graph
+  - <font color="#dd0000">def</font> coordinator_node(node:coordinator)，已出现，将任务推向简单问答或handover_to_planner
+  - <font color="#dd0000">def</font> planner_node(node:planner)，已出现，为用户的需求创建计划，确定需要的智能体，执行顺序，以及是否需要新的智能体
+  - <font color="#dd0000">def</font> publisher_node(node:publisher)，已出现但改写了，根据planner_node传递的信息，作为路由函数来决定当前阶段应该指向哪个智能体，依然是生成{"next":goto}格式的键值对
+    - "FINISH"，指向end节点
+    - ！="agent_factory"，指向agent_proxy节点
+    - "agent_factory"，指向agent_factory节点
+  - <font color="#dd0000">def</font> agent_factory_node(node:agent_factory)，已出现但改写了，结束以后指向publisher节点
+  - <font color="#dd0000">def</font> agent_proxy_node(node:agent_proxy)：由**create_react_agent**驱动的函数，返回其的输出并更新state，节点指向publisher

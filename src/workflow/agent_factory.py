@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 RESPONSE_FORMAT = "Response from {}:\n\n<response>\n{}\n</response>\n\n*Please execute the next step.*"
 
 async def agent_factory_node(state: State) -> Command[Literal["publisher","__end__"]]:
-    """Node for the create agent agent that creates a new agent."""
-    logger.info("Agent Factory Start to work \n")
+    """这个节点用来创建新的代理"""
+    logger.info("代理工厂开始工作 \n")
     messages = apply_prompt_template("agent_factory", state)
     response = (
         get_llm_by_type(AGENT_LLM_MAP["agent_factory"])
@@ -45,7 +45,7 @@ async def agent_factory_node(state: State) -> Command[Literal["publisher","__end
     return Command(
         update={
             "messages": [
-                {"content":f'New agent {response["agent_name"]} created. \n', "tool":"agent_factory", "role":"assistant"}
+                {"content":f'新的智能体 {response["agent_name"]} 已经被创建 \n', "tool":"agent_factory", "role":"assistant"}
             ],
             "new_agent_name": response["agent_name"],
             "agent_name": "agent_factory",

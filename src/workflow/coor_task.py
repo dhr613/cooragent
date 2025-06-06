@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 async def agent_factory_node(state: State) -> Command[Literal["publisher","__end__"]]:
     """Node for the create agent agent that creates a new agent."""
-    logger.info("Agent Factory Start to work \n")
+    logger.info("智能体工厂开始工作 \n")
     messages = apply_prompt_template("agent_factory", state)
     response = (
         get_llm_by_type(AGENT_LLM_MAP["agent_factory"])
