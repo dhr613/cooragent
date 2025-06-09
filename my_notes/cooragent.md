@@ -9,9 +9,9 @@ class AgentManeger(**src.manager.agent**)：用来对智能体进行管理
 - <font color="#dd0000">def</font> initialize：初始化智能体与工具
   - <font color="#dd0000">def</font> _load_agents
     - <font color="#dd0000">def</font> _load_default_agent
-      - <font color="#dd0000">def</font> _create_agent_by_prebuilt：预创建一个智能体，需要添加智能体以下的信息，每次都会生成一个Agent的实力，利用Agent的示例中的属性来保存智能体的信息
+      - <font color="#dd0000">def</font> _create_agent_by_prebuilt：预创建一个智能体，需要添加智能体以下的信息，每次都会生成一个Agent类型的实例，利用Agent的示例中的属性来保存智能体的信息。同时利用save_agent将该智能体的所有属性单独存放到一个以该智能体名称命名的json文件下，同时将该智能体的提示词同样存放到以该智能体名称命名的md文件下。最后将智能体的名称添加到可使用的智能体字典中
         - 名称(agent_name，str)
-        - 别称(nickname，str)
+        - 智能体的ID(nickname，str)
         - 描述(description，str)
         - 用户ID(user_id，str)
         - 选择的工具列表(是一个Tool属性组成的列表)
@@ -24,6 +24,7 @@ class AgentManeger(**src.manager.agent**)：用来对智能体进行管理
         - agent_name="coder"，user_id="share"，绑定工具为python_repl_tool和bash_tool，该智能体是用来实现python和bash的软件工程任务
         - agent_name="browser"，user_id="share"，绑定工具为browser_tool，该智能体的作用是与浏览器进行交互，例如爬取特定网页的内容
         - agent_name="reporter"，user_id="share"，绑定工具无，该智能体的作用是用来根据所掌握的信息来撰写报告
+    - 遍历配置中存放agent的目录，如果该目录中的有智能体没有在可使用的智能体字典中，那么利用<font color="#dd0000">def</font> _load_agent单独加载该智能体（前提是该智能体的user_id是"share"或者用户明确需要添加路径下的智能体）
   - <font color="#dd0000">def</font> load_tools：添加可以使用的工具的键值对
     - bash_tool.name：bash_tool，处理bash代码的工具
     - brower_tool.name：brower_tool，与网址进行交互的工具（可选择删除）
@@ -92,7 +93,6 @@ run_agent_workflow(**src.workflow.process**)
         - name:str(工具的名称)
         - description:str(工具的描述)
       - prompt:str
-    - 从返回的工具中筛选出出现在available_tools中的工具
     - 利用<font color="#dd0000">def</font> _create_agent_by_prebuilt 创建新的智能体，其相关属性赋值分别为：
       - user_id=state["user_id"]
       - name=agent_name

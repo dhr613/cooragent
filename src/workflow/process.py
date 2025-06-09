@@ -24,25 +24,23 @@ def enable_debug_logging():
 
 logger = logging.getLogger(__name__)
 
+# 如果环境变量USE_BROWSER为True，那么默认的智能体描述中包含browser智能体
 if USE_BROWSER:
     DEFAULT_TEAM_MEMBERS_DESCRIPTION = """
-        - **`researcher`**: Uses search engines and web crawlers to gather information from the internet. Outputs a Markdown report summarizing findings. Researcher can not do math or programming.
-        - **`coder`**: Executes Python or Bash commands, performs mathematical calculations, and outputs a Markdown report. Must be used for all mathematical computations.
-        - **`browser`**: Directly interacts with web pages, performing complex operations and interactions. You can also leverage `browser` to perform in-domain search, like Facebook, Instagram, Github, etc.
-        - **`reporter`**: Write a professional report based on the result of each step.
-        - **`agent_factory`**: Create a new agent based on the user's requirement.
+        - **`researcher`**: 使用搜索引擎和网络爬虫从互联网收集信息。输出一个Markdown报告总结发现。研究员不能进行数学或编程。
+        - **`coder`**: 执行Python或Bash命令，执行数学计算，并输出一个Markdown报告。必须用于所有数学计算。
+        - **`browser`**: 直接与网页交互，执行复杂操作和交互。你也可以利用`browser`执行域内搜索，比如Facebook，Instagram，Github等。
+        - **`reporter`**: 根据每个步骤的结果写一个专业报告。
+        - **`agent_factory`**: 根据用户的需求创建一个新智能体。
         """
 else:
     DEFAULT_TEAM_MEMBERS_DESCRIPTION = """
-        - **`researcher`**: Uses search engines and web crawlers to gather information from the internet. Outputs a Markdown report summarizing findings. Researcher can not do math or programming.
-        - **`coder`**: Executes Python or Bash commands, performs mathematical calculations, and outputs a Markdown report. Must be used for all mathematical computations.
-        - **`reporter`**: Write a professional report based on the result of each step.
-        - **`agent_factory`**: Create a new agent based on the user's requirement.
+        - **`researcher`**: 使用搜索引擎和网络爬虫从互联网收集信息。输出一个Markdown报告总结发现。研究员不能进行数学或编程。
+        - **`coder`**: 执行Python或Bash命令，执行数学计算，并输出一个Markdown报告。必须用于所有数学计算。
+        - **`reporter`**: 根据每个步骤的结果写一个专业报告。
+        - **`agent_factory`**: 根据用户的需求创建一个新智能体。
         """
 
-TEAM_MEMBERS_DESCRIPTION_TEMPLATE = """
-- **`{agent_name}`**: {agent_description}
-"""
 # Cache for coordinator messages
 coordinator_cache = []
 MAX_CACHE_SIZE = 2
@@ -58,6 +56,7 @@ async def run_agent_workflow(
     coor_agents: Optional[list[str]] = None,
 ):
     """根据用户的输入来运行智能体工作流
+    需要先看state是如何进行初始化的，以及state的各个属性是如何被赋值的
 
     Args:
         user_input_messages: 用户的请求列表
@@ -66,6 +65,7 @@ async def run_agent_workflow(
     Returns:
         工作量完成以后的最终state
     """
+    # 如果任务类型是创建智能体
     if task_type == TaskType.AGENT_FACTORY:
         graph = agent_factory_graph()
     else:
@@ -76,21 +76,24 @@ async def run_agent_workflow(
     if debug:
         enable_debug_logging()
 
+#=========================================================state的初始化=========================================================
     logger.info(f"正在依据用户的输入启动工作流: {user_input_messages}")
 
-    workflow_id = str(uuid.uuid4())
+    workflow_id = str(uuid.uuid4())# 生成一个唯一的workflow_id
 
-
+    # 定义智能体描述和工具描述的模板
     TEAM_MEMBERS_DESCRIPTION_TEMPLATE = """
     - **`{agent_name}`**: {agent_description}
     """
     TOOLS_DESCRIPTION_TEMPLATE = """
     - **`{tool_name}`**: {tool_description}
     """
-    TOOLS_DESCRIPTION = """
-    """
-    TEAM_MEMBERS_DESCRIPTION = DEFAULT_TEAM_MEMBERS_DESCRIPTION
-    TEAM_MEMBERS = ["agent_factory"]
+    TOOLS_DESCRIPTION = ""# 工具描述
+    TEAM_MEMBERS_DESCRIPTION = DEFAULT_TEAM_MEMBERS_DESCRIPTION# 默认的智能体描述
+    TEAM_MEMBERS = ["agent_factory"]# 智能体列表，默认包含agent_factory智能体
+
+    # 这里的agent_manager就是AgentManager类的示例，同时运行了initialize方法，所以agent_manager.available_agents中已经包含了目前所有的智能体
+    # 选择需要使用的智能体:(1)share智能体，(2)coor_agents中的智能体，(3)user_id对应的智能体，(4)agent_factory智能体
     for agent in agent_manager.available_agents.values():
         if agent.user_id == "share":
             TEAM_MEMBERS.append(agent.agent_name)
@@ -98,10 +101,12 @@ async def run_agent_workflow(
         if agent.user_id == user_id or agent.agent_name in coor_agents:
             TEAM_MEMBERS.append(agent.agent_name)
 
+        # 如果智能体的user_id不是share，那么添加新的智能体描述到TEAM_MEMBERS_DESCRIPTION
         if agent.user_id != "share":
             MEMBER_DESCRIPTION = TEAM_MEMBERS_DESCRIPTION_TEMPLATE.format(agent_name=agent.agent_name, agent_description=agent.description)
             TEAM_MEMBERS_DESCRIPTION += '\n' + MEMBER_DESCRIPTION
 
+    # 拼接所有的工具描述
     for tool_name, tool in agent_manager.available_tools.items():
         TOOLS_DESCRIPTION += '\n' + TOOLS_DESCRIPTION_TEMPLATE.format(tool_name=tool_name,tool_description=tool.description)
 
@@ -118,15 +123,15 @@ async def run_agent_workflow(
             async for event_data in _process_workflow(
                 graph,
                 {
-                    "user_id": user_id,
-                    "TEAM_MEMBERS": TEAM_MEMBERS,
-                    "TEAM_MEMBERS_DESCRIPTION": TEAM_MEMBERS_DESCRIPTION,
-                    "TOOLS": TOOLS_DESCRIPTION,
-                    "messages": user_input_messages,
-                    "deep_thinking_mode": deep_thinking_mode,
-                    "search_before_planning": search_before_planning,
+                    "user_id": user_id,# 用户的ID
+                    "TEAM_MEMBERS": TEAM_MEMBERS,# 智能体name组成的列表
+                    "TEAM_MEMBERS_DESCRIPTION": TEAM_MEMBERS_DESCRIPTION,# 智能体拼接的字符串描述
+                    "TOOLS": TOOLS_DESCRIPTION,# 拼接后的工具描述
+                    "messages": user_input_messages,# 用户的messages列表
+                    "deep_thinking_mode": deep_thinking_mode,# 是否开启深度思考模式
+                    "search_before_planning": search_before_planning,# 是否在规划之前进行搜索
                 },
-                workflow_id,
+                workflow_id,# 工作流的ID
             ):
                 yield event_data
 

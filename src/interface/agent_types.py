@@ -30,19 +30,19 @@ class TaskType(str, Enum):
 class Agent(BaseModel):
     """Definition for an agent the client can call."""
     user_id: str
-    """The id of the user."""
+    """用户的ID"""
     agent_name: str
-    """The name of the agent."""
+    """智能体的名称"""
     nick_name: str
-    """The id of the agent."""
+    """智能体的ID"""
     description: str
-    """The description of the agent."""
+    """智能体的描述"""
     llm_type: LLMType
-    """The type of LLM to use for the agent."""
+    """智能体使用的模型的类型，basic，code还是reasoning"""
     selected_tools: List[Tool]
-    """The tools that the agent can use."""
+    """智能体可以使用的工具列表"""
     prompt: str
-    """The prompt to use for the agent."""
+    """该智能体所使用的提示词"""
     model_config = ConfigDict(extra="allow")
 
     

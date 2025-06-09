@@ -55,8 +55,8 @@ async def agent_factory_node(state: State) -> Command[Literal["publisher","__end
 
 
 async def publisher_node(state: State) -> Command[Literal["agent_proxy", "agent_factory", "__end__"]]:
-    """publisher node that decides which agent should act next."""
-    logger.info("publisher evaluating next action")
+    """publisher节点决定下一步节点执行的方向."""
+    logger.info("publisher正在评估下一步方向...")
     messages = apply_prompt_template("publisher", state)
     response = await (
         get_llm_by_type(AGENT_LLM_MAP["publisher"])
@@ -67,16 +67,16 @@ async def publisher_node(state: State) -> Command[Literal["agent_proxy", "agent_
     
     if agent == "FINISH":
         goto = "__end__"
-        logger.info("Workflow completed \n")
+        logger.info("任务已完成 \n")
         return Command(goto=goto, update={"next": goto})
     elif agent != "agent_factory":
         goto = "agent_proxy"
     else:
         goto = "agent_factory"
-    logger.info(f"publisher delegating to: {agent} \n")
+    logger.info(f"任务将会分派给: {agent} \n")
     return Command(goto=goto, 
                     update={
-                        "messages": [{"content":f"Next step is delegating to: {agent}\n", "tool":"publisher", "role":"assistant"}],
+                        "messages": [{"content":f"下一步将会分派给: {agent}\n", "tool":"publisher", "role":"assistant"}],
                         "next": agent})
 
 
@@ -87,7 +87,7 @@ async def agent_proxy_node(state: State) -> Command[Literal["publisher","__end__
         get_llm_by_type(_agent.llm_type),
         tools=[agent_manager.available_tools[tool.name] for tool in _agent.selected_tools],
         prompt=apply_prompt(state, _agent.prompt),
-    )
+    )# 直接用create_react_agent来实现工具的调用与响应
 
     response = await agent.ainvoke(state)
 
@@ -103,7 +103,7 @@ async def agent_proxy_node(state: State) -> Command[Literal["publisher","__end__
 
 async def planner_node(state: State) -> Command[Literal["publisher", "__end__"]]:
     """Planner node that generate the full plan."""
-    logger.info("Planner generating full plan \n")
+    logger.info("正在规划整体方案 \n")
     messages = apply_prompt_template("planner", state)
     llm = get_llm_by_type(AGENT_LLM_MAP["planner"])
     if state.get("deep_thinking_mode"):
@@ -111,7 +111,7 @@ async def planner_node(state: State) -> Command[Literal["publisher", "__end__"]]
     if state.get("search_before_planning"):
         searched_content = tavily_tool.invoke({"query": [''.join(message["content"]) for message in state["messages"] if message["role"] == "user"][0]})
         messages = deepcopy(messages)
-        messages[-1]["content"] += f"\n\n# Relative Search Results\n\n{json.dumps([{'titile': elem['title'], 'content': elem['content']} for elem in searched_content], ensure_ascii=False)}"
+        messages[-1]["content"] += f"\n\n# 相关搜索结果为：\n\n{json.dumps([{'titile': elem['title'], 'content': elem['content']} for elem in searched_content], ensure_ascii=False)}"
     
     response = await llm.ainvoke(messages)
     content = response.content
@@ -126,7 +126,7 @@ async def planner_node(state: State) -> Command[Literal["publisher", "__end__"]]
     try:
         json.loads(content)
     except json.JSONDecodeError:
-        logger.warning("Planner response is not a valid JSON \n")
+        logger.warning("规划响应无法被解析为标准的json，任务直接结束\n")
         goto = "__end__"
 
     return Command(
@@ -140,8 +140,8 @@ async def planner_node(state: State) -> Command[Literal["publisher", "__end__"]]
 
 
 async def coordinator_node(state: State) -> Command[Literal["planner", "__end__"]]:
-    """Coordinator node that communicate with customers."""
-    logger.info("Coordinator talking. \n")
+    """Coordinator节点用来与用户进行沟通，决定是否需要规划"""
+    logger.info("Coordinator正在与用户沟通...\n")
     messages = apply_prompt_template("coordinator", state)
     response = get_llm_by_type(AGENT_LLM_MAP["coordinator"]).invoke(messages)
 

@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 class NotFoundAgentError(Exception):
-    """when agent not found"""
+    """当agent没有找到"""
     pass
 
 class NotFoundToolError(Exception):
-    """when tool not found"""
+    """当工具没有找到"""
     pass
 
 class AgentManager:
@@ -40,20 +40,20 @@ class AgentManager:
                 logger.info(f"路径 {path} 不存在，在初始化agent manager时，将创建... \n")
                 path.mkdir(parents=True, exist_ok=True)
                 
-        self.tools_dir = Path(tools_dir)
-        self.agents_dir = Path(agents_dir)
-        self.prompt_dir = Path(prompt_dir)
+        self.tools_dir = Path(tools_dir)# 工具json们所在的文件夹
+        self.agents_dir = Path(agents_dir)# 智能体json们所在的文件夹
+        self.prompt_dir = Path(prompt_dir)# 提示词json们所在的文件夹
 
         if not self.tools_dir.exists() or not self.agents_dir.exists() or not self.prompt_dir.exists():
             raise FileNotFoundError("提供的目录之一不存在。")
-        self.available_agents = {}
-        self.available_tools = {}
+        self.available_agents = {}# 存放可使用的智能体
+        self.available_tools = {}# 存放可使用的工具
 
     async def initialize(self, user_agent_flag=USR_AGENT):
         """异步初始化AgentManager，加载agents和tools"""
-        await self._load_agents(user_agent_flag)
-        await self.load_tools()
-        logger.info(f"AgentManager初始化完成。 {len(self.available_agents)} agents 和 {len(self.available_tools)} tools 可用。")
+        await self._load_agents(user_agent_flag)# 向self.available_agents中添加默认的智能体
+        await self.load_tools()# 向self.available_tools中添加默认的工具
+        logger.info(f"AgentManager初始化完成。 共有{len(self.available_agents)} 个agents 和 {len(self.available_tools)} 个tools 可用。")
 
     def _create_agent_by_prebuilt(self, user_id: str, name: str, nick_name: str, llm_type: str, tools: list[tool], prompt: str, description: str):
         def _create(user_id: str, name: str, nick_name: str, llm_type: str, tools: list[tool], prompt: str, description: str):
@@ -88,16 +88,19 @@ class AgentManager:
         for _tool in mcp_tools:
             self.available_tools[_tool.name] = _tool
                     
-    async def load_tools(self):        
+    async def load_tools(self):
+        # 向self.available_tools中添加默认的工具，这些工具都是默认加载的agent所绑定的工具
         self.available_tools.update({
-            bash_tool.name: bash_tool,
-            browser_tool.name: browser_tool,
-            crawl_tool.name: crawl_tool,
-            python_repl_tool.name: python_repl_tool,
-            tavily_tool.name: tavily_tool,
+            bash_tool.name: bash_tool,# 添加bash_tool
+            browser_tool.name: browser_tool,# 添加browser_tool
+            crawl_tool.name: crawl_tool,# 添加crawl_tool
+            python_repl_tool.name: python_repl_tool,# 添加python_repl_tool
+            tavily_tool.name: tavily_tool,# 添加tavily_tool
         })
+        # 如果设置了不使用浏览器，那么删除browser_tool
         if not USE_BROWSER:
             del self.available_tools[browser_tool.name]    
+        # 如果设置了使用mcp工具，那么加载mcp工具
         if USE_MCP_TOOLS:
             await self.load_mcp_tools()
 
@@ -111,7 +114,7 @@ class AgentManager:
         with open(agent_prompt_path, "w") as f:
             f.write(agent.prompt)
 
-        logger.info(f"agent {agent.agent_name} saved.")
+        logger.info(f"智能体 {agent.agent_name} 已存放")
         
     def _remove_agent(self, agent_name: str):
         agent_path = self.agents_dir / f"{agent_name}.json"
@@ -177,59 +180,71 @@ class AgentManager:
         return
     
     async def _load_default_agents(self):
+        # _create_agent_by_prebuilt作用有以下几点：
+        # 创建一个Agent类型（继承BaseModel）的示例，这个示例的各个属性来保存该智能体的各个属性
+        # 将每个Agent的实例以智能体的名称分别存放它的所有属性和提示词
+
+        # 添加默认智能体1,绑定了tavily_tool和crawl_tool，主要用于网络检索
         self._create_agent_by_prebuilt(user_id="share", 
                                         name="researcher", 
                                         nick_name="researcher", 
                                         llm_type=AGENT_LLM_MAP["researcher"], 
                                         tools=[tavily_tool, crawl_tool], 
-                                        prompt=get_prompt_template("researcher"),
-                                        description="This agent specializes in research tasks by utilizing search engines and web crawling. It can search for information using keywords, crawl specific URLs to extract content, and synthesize findings into comprehensive reports. The agent excels at gathering information from multiple sources, verifying relevance and credibility, and presenting structured conclusions based on collected data."),
+                                        prompt=get_prompt_template("researcher"),# 这个函数会根据输入的参数去获取对应的prompt，返回一个元组，0表示提示词模版，1表示提示词中的所有变量组成的列表
+                                        description="这个智能体擅长使用搜索引擎和网络爬虫进行研究任务。它可以根据关键词搜索信息，爬取特定URL以提取内容，并将发现综合成全面的报告。这个智能体在从多个来源收集信息、验证相关性和可信度以及基于收集的数据提出结构化结论方面表现出色。"),
         
+        # 添加默认智能体2，绑定了python_repl_tool和bash_tool，主要用于代码生成和执行
         self._create_agent_by_prebuilt(user_id="share", 
                                         name="coder", 
                                         nick_name="coder", 
                                         llm_type=AGENT_LLM_MAP["coder"], 
                                         tools=[python_repl_tool, bash_tool], 
                                         prompt=get_prompt_template("coder"),
-                                        description="This agent specializes in software engineering tasks using Python and bash scripting. It can analyze requirements, implement efficient solutions, and provide clear documentation. The agent excels at data analysis, algorithm implementation, system resource management, and environment queries. It follows best practices, handles edge cases, and integrates Python with bash when needed for comprehensive problem-solving."),
+                                        description="这个代理专门使用Python和bash脚本进行软件工程任务。它可以分析需求，实施高效的解决方案，并提供清晰的文档。该代理擅长数据分析、算法实现、系统资源管理和环境查询。它遵循最佳实践，处理边缘情况，并在需要时将Python与bash集成起来，以全面解决问题。"),
         
-        
+        # 添加了默认智能体3，绑定了brower_tool，主要用于与指定网站交互，比如搜索，点击，填写表单，爬取内容等
         self._create_agent_by_prebuilt(user_id="share", 
                                         name="browser", 
                                         nick_name="browser", 
                                         llm_type=AGENT_LLM_MAP["browser"], 
                                         tools=[browser_tool], 
                                         prompt=get_prompt_template("browser"), 
-                                        description="This agent specializes in interacting with web browsers. It can navigate to websites, perform actions like clicking, typing, and scrolling, and extract information from web pages. The agent is adept at handling tasks such as searching specific websites, interacting with web elements, and gathering online data. It is capable of operations like logging in, form filling, clicking buttons, and scraping content."),
+                                        description="他的代理专门用于与网页浏览器交互。它可以导航到网站，执行诸如单击、键入和滚动等操作，并从网页中提取信息。该代理擅长处理搜索特定网站、与网页元素交互以及收集在线数据等任务。它能够进行登录、填写表单、单击按钮和抓取内容等操作。"),
     
+        # 添加了默认智能体4，不绑定任何工具，主要用于生成纯文本的报告，比如总结，分析，结论等
         self._create_agent_by_prebuilt(user_id="share", 
                                         name="reporter", 
                                         nick_name="reporter", 
                                         llm_type=AGENT_LLM_MAP["reporter"], 
                                         tools=[], 
                                         prompt=get_prompt_template("reporter"), 
-                                        description="This agent specializes in creating clear, comprehensive reports based solely on provided information and verifiable facts. It presents data objectively, organizes information logically, and highlights key findings using professional language. The agent structures reports with executive summaries, detailed analysis, and actionable conclusions while maintaining strict data integrity and never fabricating information.")
+                                        description="该代理专门根据提供的信息和可验证的事实创建清晰、全面的报告。它客观地呈现数据，逻辑地组织信息，并使用专业语言突出关键发现。该代理以执行摘要、详细分析和可行结论的形式构建报告，同时保持严格的数据完整性，绝不捏造信息。 ")
 
                     
     async def _load_agents(self, user_agent_flag):
-        await self._load_default_agents()
+        await self._load_default_agents()# 先加载默认的智能体到self.available_agents中
         load_tasks = []
+
+        # 遍历agent_dir下的所有json文件，
         for agent_path in self.agents_dir.glob("*.json"):
             agent_name = agent_path.stem
             if agent_name not in self.available_agents.keys():
+                # 将存在于本地但是不在sefl.available_agents中的智能体按照要求加载到self.available_agents中
+                # （self._load_agent并未运行，因为它是一个异步函数，所以添加到列表中的是协程函数，后面会通过asyncio.gather进行并发调用）
                 load_tasks.append(self._load_agent(agent_name, user_agent_flag))
-                
+        
+        # 如果设置了不使用浏览器，那么删除browser智能体
         if not USE_BROWSER and "browser" in self.available_agents:
             del self.available_agents["browser"]
             
-
+        # 如果load_tasks不为空，那么并发添加智能体到self.available_agents中
         if load_tasks:
             results = await asyncio.gather(*load_tasks, return_exceptions=True)
             for i, result in enumerate(results):
                  if isinstance(result, FileNotFoundError):
-                      logger.warning(f"File not found during bulk load for agent: {load_tasks[i]}. Error: {result}")
+                      logger.warning(f"在批量加载智能体时，文件未找到: {load_tasks[i]}. 错误: {result}")
                  elif isinstance(result, Exception):
-                      logger.error(f"Error during bulk load for agent: {load_tasks[i]}. Error: {result}")
+                      logger.error(f"在批量加载智能体时，发生错误: {load_tasks[i]}. 错误: {result}")
         return   
     
     async def _list_default_tools(self):
